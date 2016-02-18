@@ -60,7 +60,7 @@ namespace HardLinkDuplicates
             if (GetFileInformationByHandle(handle, out fileInfo))
             {
                 handle.Close();
-                return string.Format("{0:X8}{1:X8}{2:X8}", fileInfo.VolumeSerialNumber,fileInfo.FileIndexHigh, fileInfo.FileIndexLow);
+                return $"{fileInfo.VolumeSerialNumber:X8}{fileInfo.FileIndexHigh:X8}{fileInfo.FileIndexLow:X8}";
             }
             handle.Close();
             return null;
@@ -148,7 +148,7 @@ namespace HardLinkDuplicates
         {
             try
             {
-                var hash = Get1MHash(file);
+                var hash = GetFullHash(file);
                 List<string> filesPerHash;
                 if (!dic.TryGetValue(hash, out filesPerHash))
                 {
@@ -187,26 +187,51 @@ namespace HardLinkDuplicates
         }
 
         private static readonly byte[] Buffer = new byte[1024*1024];
+
+        // ReSharper disable once UnusedMember.Local
         private static string Get1MHash(string file)
         {
             using (var strm = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
                 var read = strm.Read(Buffer, 0, 1024*1024);
-                return CalculateMD5Hash(Buffer, read) + new FileInfo(file).Length.ToString(CultureInfo.InvariantCulture);
+                return CalculateMd5Hash(Buffer, read) + new FileInfo(file).Length.ToString(CultureInfo.InvariantCulture);
             }
         }
 
-        public static string CalculateMD5Hash(byte[] inputBytes, int count)
+        private static string GetFullHash(string file)
+        {
+            using (var strm = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                return CalculateMd5Hash(strm);
+            }
+        }
+
+        public static string CalculateMd5Hash(Stream stream)
         {
             // step 1, calculate MD5 hash from input
             var md5 = MD5.Create();
-            var hash = md5.ComputeHash(inputBytes, 0 ,count);
+            var hash = md5.ComputeHash(stream);
 
             // step 2, convert byte array to hex string
             var sb = new StringBuilder();
-            for (var i = 0; i < hash.Length; i++)
+            foreach (var t in hash)
             {
-                sb.Append(hash[i].ToString("X2"));
+                sb.Append(t.ToString("X2"));
+            }
+            return sb.ToString();
+        }
+
+        public static string CalculateMd5Hash(byte[] inputBytes, int count)
+        {
+            // step 1, calculate MD5 hash from input
+            var md5 = MD5.Create();
+            var hash = md5.ComputeHash(inputBytes, 0, count);
+
+            // step 2, convert byte array to hex string
+            var sb = new StringBuilder();
+            foreach (byte t in hash)
+            {
+                sb.Append(t.ToString("X2"));
             }
             return sb.ToString();
         }
